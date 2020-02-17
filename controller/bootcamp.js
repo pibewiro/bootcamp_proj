@@ -1,10 +1,17 @@
 const mongoose = require("mongoose")
 const Bootcamp = require("../Model/Bootcamp")
 const ErrorResponse = require("../utils/errorResponse")
+const geoCoder = require("../utils/geocoder")
 
 exports.getBootCamps = async(req, res, next) => {
+
+    let queryStr = JSON.stringify(req.query)
+    queryStr = queryStr.replace(/\b(gt|gte|lt|lte|in)\b/g, match=>`$${match}`);
+    console.log(queryStr)
+    let query = JSON.parse(queryStr)
+
     try{
-        const bootCamps = await Bootcamp.find();
+        const bootCamps = await Bootcamp.find().skip(0).limit(1);
         return res.status(200).json({success:true, length:bootCamps.length, data:bootCamps})
     }
 
@@ -83,4 +90,30 @@ exports.updateBootCamp = async(req,res,next) => {
             return res.status(500).json({success:false, err})
         }
     
+}
+
+//@get bootcamps within  a radius
+//route get /api/v1/bootcamps/radius/:zipCode/:distance
+exports.getBootCampsInRadius = async(req,res, next) => {
+
+    const {zipCode, distance} = req.params;
+    const loc = await geoCoder.geocode(zipCode);
+    const lng = loc[0].longitude;
+    const lat = loc[0].latitude;
+    const radius = distance/3963;
+
+    try{
+        const bootcamps = await Bootcamp.find({
+            location:{$geoWithin:{$centerSphere:[[lng, lat], radius]}}
+        })
+
+        return res.status(200).json({success:true, count:bootcamps.count, data:bootcamps})
+    }
+
+    catch(err)
+    {
+        console.log(err)
+    }
+
+
 }
