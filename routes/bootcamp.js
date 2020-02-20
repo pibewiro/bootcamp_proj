@@ -1,6 +1,7 @@
 const express = require("express")
 const router = express.Router();
 const bootcamp = require("../controller/bootcamp")
+const courseRouter = require("./course");
 
 //@ get all bootcamps
 //@api/v1/bootcamps
@@ -25,6 +26,9 @@ router.delete("/:id", bootcamp.deleteBootCamp)
 router.put("/:id", bootcamp.updateBootCamp)
 
 router.get('/radius/:zipCode/:distance', bootcamp.getBootCampsInRadius)
+
+//include other resource routers
+router.use("/:bootcampId/courses", courseRouter)
 
 
 module.exports = router;
