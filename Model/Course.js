@@ -32,6 +32,13 @@ const courseSchema = new Schema({
     type: Date,
     default: Date.now
   },
+
+  user: {
+    type: mongoose.Schema.ObjectId,
+    ref: "Users",
+    required: true
+  },
+
   bootcamp: {
     type: mongoose.Schema.ObjectId,
     ref: 'Bootcamp',

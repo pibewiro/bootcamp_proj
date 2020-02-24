@@ -7,7 +7,7 @@ const Course = require("../Model/Course")
 //@ access public
 
 exports.postCourse = async (req, res, next) => {
-
+  req.body.user = req.user._id
   try {
     const course = await Course.create(req.body)
     return res.status(201).json({
@@ -22,9 +22,17 @@ exports.postCourse = async (req, res, next) => {
 
 exports.updateCourse = async (req, res, next) => {
 
-  console.log(req.params.courseId, req.body)
+  console.log(req.params.courseId)
   try {
-    const course = await Course.findByIdAndUpdate(req.params.courseId, req.body, {
+    let course = await Course.findById(req.params.courseId)
+    if (req.user._id.toString() !== course.user.toString() || req.user.role !== 'publisher') {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized"
+      })
+    }
+
+    course = await Course.findOneAndUpdate(req.params.courseId, req.body, {
       new: true,
       runValidators: true
     })
@@ -34,7 +42,6 @@ exports.updateCourse = async (req, res, next) => {
         success: false,
       })
     }
-
 
     return res.status(200).json({
       success: true,
@@ -100,9 +107,13 @@ exports.getCourse = async (req, res, next) => {
 exports.deleteCourse = async (req, res, next) => {
 
   try {
-    console.log(req.params.courseId)
-    const course = await Course.findById(req.params.courseId)
-    console.log(course)
+    let course = await Course.findById(req.params.courseId)
+    if (req.user._id.toString() !== course.user.toString() || req.user.role !== 'publisher') {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized"
+      })
+    }
 
     if (!course) {
       return res.status(404).json({
@@ -113,6 +124,7 @@ exports.deleteCourse = async (req, res, next) => {
     course.remove()
     return res.status(200).json({
       success: true,
+      error: "Course Deleted"
     })
   } catch (err) {
     console.log(err)

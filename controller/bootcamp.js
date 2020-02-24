@@ -2,12 +2,11 @@ const mongoose = require("mongoose")
 const Bootcamp = require("../Model/Bootcamp")
 const ErrorResponse = require("../utils/errorResponse")
 const geoCoder = require("../utils/geocoder")
-
+const path = require("path")
 exports.getBootCamps = async (req, res, next) => {
-
     let queryStr = JSON.stringify(req.query)
     queryStr = queryStr.replace(/\b(gt|gte|lt|lte|in)\b/g, match => `$${match}`);
-    console.log(queryStr)
+    //console.log(queryStr)
     let query = JSON.parse(queryStr)
 
     try {
@@ -26,6 +25,18 @@ exports.getBootCamps = async (req, res, next) => {
 }
 
 exports.postBootCamp = async (req, res, next) => {
+
+    req.body.user = req.user.id
+    const publishedBootcamp = await Bootcamp.findOne({
+        user: req.user.id
+    })
+
+    if (publishedBootcamp && req.user.role !== 'admin') {
+        return res.status(401).json({
+            success: false,
+            error: `Unauthorized User ${req.user.id} already has one bootcamp created`
+        })
+    }
 
     try {
         const bootcamp = await Bootcamp.create(req.body)
@@ -67,6 +78,13 @@ exports.deleteBootCamp = async (req, res, next) => {
                 success: false
             })
         }
+        console.log(bootcamp.user.toString(), req.user._id.toString())
+        if (req.user._id.toString() !== bootcamp.user.toString() || req.user.role !== 'admin') {
+            return res.status(401).json({
+                success: false,
+                error: "Unauthorized"
+            })
+        }
 
         await bootcamp.remove();
 
@@ -88,14 +106,17 @@ exports.deleteBootCamp = async (req, res, next) => {
 exports.updateBootCamp = async (req, res, next) => {
 
     try {
-        const bootcamp = await Bootcamp.findByIdAndUpdate(req.params.id, req.body, {
-            new: true,
-            runValidators: true
-        })
-        return res.status(200).json({
-            success: true,
-            msg: bootcamp
-        })
+        let bootcamp = await Bootcamp.findById(req.params.id)
+
+        console.log(bootcamp.user)
+        console.log(req.user._id)
+
+        if (req.user._id.toString() !== bootcamp.user.toString() || req.user.role !== 'admin') {
+            return res.status(401).json({
+                success: false,
+                error: "Unauthorized"
+            })
+        }
 
         if (!bootcamp) {
             return res.status(500).json({
@@ -103,6 +124,18 @@ exports.updateBootCamp = async (req, res, next) => {
                 msg: "Id does not exist"
             })
         }
+
+        bootcamp = await Bootcamp.findOneAndUpdate(req.params.id, req.body, {
+            new: true,
+            runValidators: true
+        })
+
+
+
+        return res.status(200).json({
+            success: true,
+            msg: bootcamp
+        })
     } catch (err) {
         return res.status(500).json({
             success: false,
@@ -144,6 +177,51 @@ exports.getBootCampsInRadius = async (req, res, next) => {
     } catch (err) {
         console.log(err)
     }
+}
+
+exports.uploadPhoto = async (req, res, next) => {
+    console.log(req.files.file.name)
+    const bootcamp = await Bootcamp.findById(req.params.id);
+
+    if (!bootcamp) {
+        return res.status(404).json({
+            success: false,
+            message: 'No bootcamp found'
+        })
+    }
+
+    if (!req.files) {
+        return res.status(400).json({
+            success: false,
+            message: 'No file found'
+        })
+    }
 
 
+    if (!req.files.file.mimetype.startsWith('image')) {
+        return res.status(400).json("Upload an image damnit")
+    }
+
+    if (req.files.file.size > process.env.MAX_FILE_UPLOAD) {
+        return res.status(400).json("File size is too damn big")
+    }
+
+    const orginalfilename = req.files.file.name.split('.')[0]
+    console.log(orginalfilename)
+    const customName = `photo_${bootcamp._id}${orginalfilename}${path.parse(req.files.file.name).ext}`
+    console.log(customName)
+    req.files.file.mv(`${process.env.FILE_UPLOAD_PATH}/${customName}`, async (err) => {
+        if (err) {
+            console.log(err)
+        }
+
+        await Bootcamp.findByIdAndUpdate(req.params.id, {
+            photo: customName
+        })
+
+        return res.status(200).json({
+            success: true,
+            data: customName
+        })
+    })
 }

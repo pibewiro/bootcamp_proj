@@ -100,6 +100,12 @@ const BootcampSchema = new Schema({
         default: false
     },
 
+    user: {
+        type: mongoose.Schema.ObjectId,
+        ref: "User",
+        required: true
+    },
+
     createdAt: {
         type: Date,
         default: Date.now
@@ -145,6 +151,7 @@ BootcampSchema.pre('save', async function (next) {
     this.address = undefined
     next()
 })
+
 
 
 module.exports = mongoose.model("Bootcamp", BootcampSchema)
